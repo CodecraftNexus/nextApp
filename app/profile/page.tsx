@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   User,
   Calendar,
@@ -16,24 +16,28 @@ import {
   Globe,
   Mail,
   CheckCircle,
+  Briefcase,
+  GraduationCap,
 } from "lucide-react";
 import Header from "../container/Header";
 import { useAuth } from "../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
 import useFormData from "../hooks/UseFormData";
 import { useRouter } from "next/navigation";
+import GroupedMultiComboSelect from "../components/profile/ComboSelect";
 
+// -------------------------------------------------------------------
 const LOCATIONIQ_API_KEY = "pk.83ce678095a5989ba69f8649e97e1135";
+// -------------------------------------------------------------------
+
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, getJobsOptions, getEducationOptions } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
-  // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 
   const UpdateFormData = useFormData({
     gender: "",
@@ -43,13 +47,39 @@ export default function ProfilePage() {
     birthLocation: "",
     latitude: "",
     longitude: "",
+    jobs :[] as any,
+    education : [] as any
   });
+
+  const [selectedJobs, setSelectedJobs] = useState<{ option: string; category: string }[]>([]);
+  const [selectedEducation, setSelectedEducation] = useState<{ option: string; category: string }[]>([]);
+
+  const [jobsOptions, setJobsOptions] = useState<{ [key: string]: string[] }>({});
+  const [educationOptions, setEducationOptions] = useState<{ [key: string]: string[] }>({});
 
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const jobs = await getJobsOptions();
+
+        setJobsOptions(jobs);
+        const edu = await getEducationOptions();
+        setEducationOptions(edu);
+      } catch (err) {
+        toast.error('Failed to load options');
+        console.error(err);
+      }
+    };
+    fetchOptions();
+  }, [getJobsOptions, getEducationOptions]);
+
+
 
   useEffect(() => {
     if (user) {
@@ -61,12 +91,40 @@ export default function ProfilePage() {
         birthLocation: user.birthLocation || "",
         latitude: user.latitude || "",
         longitude: user.longitude || "",
+        jobs: user.jobs || [],
+        education: user.education || []
       });
-      if (user.birthLocation) setQuery(user.birthLocation);
+      setQuery(user.birthLocation || "");
     }
   }, [user]);
 
-  // ███████████████████████████████████████████████████████████
+  useEffect(() => {
+    if (Object.keys(jobsOptions).length > 0 && user?.jobs) {
+      setSelectedJobs(user.jobs.map((job: string) => ({
+        option: job,
+        category: findCategory(jobsOptions, job),
+      })));
+    }
+  }, [jobsOptions, user]);
+
+  useEffect(() => {
+    if (Object.keys(educationOptions).length > 0 && user?.education) {
+      setSelectedEducation(user.education.map((edu: string) => ({
+        option: edu,
+        category: findCategory(educationOptions, edu),
+      })));
+    }
+  }, [educationOptions, user]);
+
+  const findCategory = (optionsObj: { [key: string]: string[] }, option: string): string => {
+    for (const [cat, opts] of Object.entries(optionsObj)) {
+      if (opts.includes(option)) {
+        return cat;
+      }
+    }
+    return '';
+  };
+
   useEffect(() => {
     if (user == null) {
       if (redirectTimerRef.current) {
@@ -92,7 +150,6 @@ export default function ProfilePage() {
       }
     };
   }, [user, router]);
-  // ███████████████████████████████████████████████████████████
 
   const searchLocation = async (q: string) => {
     if (q.trim().length < 2) {
@@ -155,7 +212,18 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateProfile(UpdateFormData.formData);
+      const profileData = {
+        gender: UpdateFormData.formData.gender,
+        dateOfBirth: UpdateFormData.formData.dateOfBirth,
+        birthTime: UpdateFormData.formData.birthTime,
+        whatsappNumber: UpdateFormData.formData.whatsappNumber,
+        birthLocation: UpdateFormData.formData.birthLocation,
+        latitude: UpdateFormData.formData.latitude,
+        longitude: UpdateFormData.formData.longitude,
+        jobs: selectedJobs.map((s) => s.option),
+        education: selectedEducation.map((s) => s.option),
+      };
+      await updateProfile(profileData);
       toast.success("Profile updated successfully!");
       setIsEditing(false);
     } catch (err: any) {
@@ -175,16 +243,22 @@ export default function ProfilePage() {
         birthLocation: user.birthLocation || "",
         latitude: user.latitude || "",
         longitude: user.longitude || "",
+        jobs: user.jobs || [],
+        education: user.education || []
       });
+      setSelectedJobs(user.jobs.map((job: string) => ({
+        option: job,
+        category: findCategory(jobsOptions, job),
+      })));
+      setSelectedEducation(user.education.map((edu: string) => ({
+        option: edu,
+        category: findCategory(educationOptions, edu),
+      })));
       setQuery(user.birthLocation || "");
     }
     setIsEditing(false);
   };
 
-  // ███████████████████████████████████████████████████████████
-  // USER NEHE NAM – Loading eka pennanawa (redirect wenakan kiyala wait karanawa)
-  // User awith awa nam methana ihaare component eka render wenna ba
-  // ███████████████████████████████████████████████████████████
   if (user == null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -195,7 +269,14 @@ export default function ProfilePage() {
       </div>
     );
   }
-  // ███████████████████████████████████████████████████████████
+
+  const handleJobsChange = (selected: { option: string; category: string }[]) => {
+    setSelectedJobs(selected);
+  };
+
+  const handleEducationChange = (selected: { option: string; category: string }[]) => {
+    setSelectedEducation(selected);
+  };
 
   return (
     <>
@@ -215,7 +296,7 @@ export default function ProfilePage() {
 
         <div className="max-w-4xl mx-auto p-6 pt-8">
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-32 md:h-48"></div>
+            <div className="bg-linear-to-r from-blue-600 to-purple-600 h-32 md:h-48"></div>
             <div className="relative px-8 pb-10">
               <div className="absolute -top-16 left-8">
                 <div className="w-32 h-32 bg-white rounded-full p-2 shadow-2xl">
@@ -433,7 +514,6 @@ export default function ProfilePage() {
                       </button>
                     )}
 
-                    {/* ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←← */}
                     {showDropdown && (
                       <div className="absolute left-0 right-0 mt-2 bg-white border-2 border-gray-200 rounded-lg shadow-2xl z-50 max-h-60 overflow-y-auto">
                         {loadingLocation ? (
@@ -467,7 +547,6 @@ export default function ProfilePage() {
                         ) : null}
                       </div>
                     )}
-                    {/* ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←← */}
                   </div>
                 </div>
               ) : UpdateFormData.formData.birthLocation ? (
@@ -504,10 +583,67 @@ export default function ProfilePage() {
                 <p className="text-gray-500 italic">Birth location not set</p>
               )}
             </div>
+
+            {/* New Education Section */}
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-black mb-6 flex items-center gap-3">
+                <GraduationCap className="w-7 h-7 text-blue-600" /> Education Qualifications
+              </h2>
+
+              {isEditing ? (
+                <GroupedMultiComboSelect
+                  options={educationOptions}
+                  placeholder="Search and select education qualifications..."
+                  onChange={handleEducationChange}
+                  value={selectedEducation}
+                />
+              ) : selectedEducation.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedEducation.map((edu, index) => (
+                    <span
+                      key={index}
+                      className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full"
+                    >
+                      {edu.option}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No education qualifications added</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-black mb-6 flex items-center gap-3">
+                <Briefcase className="w-7 h-7 text-blue-600" /> Preferred Jobs
+              </h2>
+
+              {isEditing ? (
+                <GroupedMultiComboSelect
+                  options={jobsOptions}
+                  placeholder="Search and select preferred jobs..."
+                  onChange={handleJobsChange}
+                  value={selectedJobs}
+                />
+              ) : selectedJobs.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedJobs.map((job, index) => (
+                    <span
+                      key={index}
+                      className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full"
+                    >
+                      {job.option}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No preferred jobs added</p>
+              )}
+            </div>
           </div>
 
           {!isProfileComplete && !isEditing && (
-            <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-8 text-center">
+            <div className="mt-10 bg-linear-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-8 text-center">
               <h3 className="text-xl font-bold text-amber-900 mb-3">
                 Complete Your Profile for Accurate Predictions
               </h3>

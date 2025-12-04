@@ -72,7 +72,7 @@ export const authService = {
         try {
             const user = await apiClient.post<any>('/api/auth/google-login', { idToken });
             const requiresUsername = user?.requiresUsername;
-            return { success: true, user , requiresUsername };
+            return { success: true, user, requiresUsername };
         } catch (error: any) {
             return { success: false, error: error.message };
         }
@@ -80,7 +80,7 @@ export const authService = {
     },
 
     setUsername: async (username: string) => {
-         try {
+        try {
             const user = await apiClient.post('/api/auth/set-username', { username });
             return { success: true, user };
         } catch (error: any) {
@@ -92,4 +92,33 @@ export const authService = {
     forgotPassword: async (email: string) => {
         return await apiClient.post('/api/users/forgot-password', { email });
     },
+
+    getPredictions: async (planet: string) => {
+        try {
+
+            const predictions = await apiClient.post(`/api/prediction/${planet}`);
+            return { success: true, predictions };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+
+    },
+
+    getJobsOptions: async () => {
+        try {
+            const options = await apiClient.get('/api/jobs/options');
+            return { success: true, options };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    getEducationOptions: async () => {
+        try {
+            const options = await apiClient.get('/api/education/options');
+            return { success: true, options };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    }
 };
