@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+
+.funnel-sans-text {
+  font-family: var(--font-funnel-sans);
+}
+
+.teko-text {
+  font-family: var(--font-teko);
+}
